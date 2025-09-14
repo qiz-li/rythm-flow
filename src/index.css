@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+}
+
+@layer components {
+  .activity-bar {
+    @apply bg-gradient-to-r from-rhythm-primary to-rhythm-secondary rounded-full transition-all duration-300;
+  }
+  
+  .burst-indicator {
+    @apply bg-rhythm-accent/20 border-l-4 border-rhythm-accent rounded-r-md;
+  }
+  
+  .balance-good {
+    @apply text-rhythm-success;
+  }
+  
+  .balance-warning {
+    @apply text-rhythm-warning;
+  }
+  
+  .balance-danger {
+    @apply text-rhythm-danger;
+  }
+}

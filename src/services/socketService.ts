@@ -7,6 +7,7 @@ interface ServerToClientEvents {
   'user-left': (userId: string) => void
   'voice-contribution': (contribution: VoiceContribution) => void
   'typing-activity': (activity: TypingActivity) => void
+  'content-update': (content: string) => void  // Add content update event
   'user-presence': (users: User[]) => void
   'session-created': (response: { success: boolean; session?: RhythmSession; error?: string }) => void
   'join-session-response': (response: { success: boolean; session?: RhythmSession; error?: string }) => void
@@ -18,6 +19,7 @@ interface ClientToServerEvents {
   'leave-session': (data: { sessionId: string; userId: string }) => void
   'voice-contribution': (data: { sessionId: string; contribution: VoiceContribution }) => void
   'typing-activity': (data: { sessionId: string; activity: TypingActivity }) => void
+  'content-update': (data: { sessionId: string; content: string }) => void  // Add content update event
   'request-presence': (sessionId: string) => void
 }
 
@@ -254,6 +256,16 @@ class SocketService {
     }
   }
 
+  // Content broadcasting
+  broadcastContentUpdate(sessionId: string, content: string) {
+    console.log('📤 [SocketService] Broadcasting content update:', { sessionId, contentLength: content.length })
+    if (this.socket?.connected) {
+      this.socket.emit('content-update', { sessionId, content })
+    } else {
+      console.error('❌ [SocketService] Cannot broadcast content update: socket not connected')
+    }
+  }
+
   requestPresence(sessionId: string) {
     if (this.socket?.connected) {
       this.socket.emit('request-presence', sessionId)
@@ -279,6 +291,14 @@ class SocketService {
 
   onTypingActivity(callback: (activity: TypingActivity) => void) {
     this.socket?.on('typing-activity', callback)
+  }
+
+  onContentUpdate(callback: (content: string) => void) {
+    console.log('🔧 [SocketService] Registering content-update listener')
+    this.socket?.on('content-update', (content) => {
+      console.log('📥 [SocketService] Received content-update event from server', { contentLength: content.length })
+      callback(content)
+    })
   }
 
   onUserPresence(callback: (users: User[]) => void) {

@@ -15,8 +15,11 @@ interface ActivityData {
 }
 
 export default function ActivityBars({ currentUser }: ActivityBarsProps) {
-  const { currentSession } = useSessionStore()
+  const { currentSession, demoUsers, isDemoMode } = useSessionStore()
   const [activityData, setActivityData] = useState<ActivityData[]>([])
+  
+  // Use demo users if in demo mode, otherwise use session participants
+  const displayUsers = isDemoMode ? demoUsers : (currentSession?.participants || [])
 
   useEffect(() => {
     if (!currentSession) return
@@ -25,7 +28,7 @@ export default function ActivityBars({ currentUser }: ActivityBarsProps) {
       const now = Date.now()
       const windowSize = 60000
 
-      const activities: ActivityData[] = currentSession.participants.map(user => {
+      const activities: ActivityData[] = displayUsers.map(user => {
         const recentTyping = currentSession.typingActivities.filter(
           activity => activity.userId === user.id && (now - activity.timestamp) < windowSize
         )
@@ -60,7 +63,7 @@ export default function ActivityBars({ currentUser }: ActivityBarsProps) {
     const interval = setInterval(calculateActivity, 1000)
 
     return () => clearInterval(interval)
-  }, [currentSession])
+  }, [currentSession, displayUsers])
 
   if (!currentSession) return null
 
@@ -68,7 +71,7 @@ export default function ActivityBars({ currentUser }: ActivityBarsProps) {
 
   return (
     <div className="space-y-4">
-      {currentSession.participants.map(user => {
+      {displayUsers.map(user => {
         const userActivity = activityData.find(data => data.userId === user.id) || {
           userId: user.id,
           typingRate: 0,

@@ -34,6 +34,7 @@ class SessionManager {
       participants: [creator],
       voiceContributions: [],
       typingActivities: [],
+      sharedContent: '', // Add shared content
       settings: {
         windowSize: 30000,
         burstThreshold: 5,
@@ -98,6 +99,15 @@ class SessionManager {
     return false
   }
 
+  updateSharedContent(sessionId, content) {
+    const session = sessions.get(sessionId)
+    if (session) {
+      session.sharedContent = content
+      return true
+    }
+    return false
+  }
+
   getSession(sessionId) {
     return sessions.get(sessionId)
   }
@@ -126,13 +136,7 @@ sessions.delete(userSessions.get('demo-user'))
 userSessions.delete('demo-user')
 
 io.on('connection', (socket) => {
-  console.log(`✅ User connected: ${socket.id} from ${socket.handshake.address}`)
-  console.log(`🔍 Connection details:`, {
-    transport: socket.conn.transport.name,
-    upgraded: socket.conn.upgraded,
-    remoteAddress: socket.handshake.address,
-    headers: socket.handshake.headers.origin
-  })
+  console.log(`User connected: ${socket.id}`)
 
   socket.on('create-session', ({ sessionName, user }) => {
     try {
@@ -155,10 +159,6 @@ io.on('connection', (socket) => {
       socket.join(sessionId)
       socket.userId = user.id
       socket.sessionId = sessionId
-
-      // Debug room membership
-      console.log(`👥 Socket ${socket.id} joined room ${sessionId}`)
-      console.log(`🏠 Room ${sessionId} now has ${io.sockets.adapter.rooms.get(sessionId)?.size || 0} members`)
 
       socket.emit('join-session-response', { success: true, session })
       socket.to(sessionId).emit('user-joined', user)
@@ -214,6 +214,26 @@ io.on('connection', (socket) => {
       }
     } else {
       console.log(`❌ Failed to add typing activity to session ${sessionId}`)
+    }
+  })
+
+  // Add content update handler
+  socket.on('content-update', ({ sessionId, content }) => {
+    console.log(`📝 Content update from ${socket.userId} in session ${sessionId}`)
+    console.log(`📄 Content length: ${content.length}`)
+    
+    if (sessionManager.updateSharedContent(sessionId, content)) {
+      console.log(`📤 Broadcasting content update to ${(io.sockets.adapter.rooms.get(sessionId)?.size || 0) - 1} other users`)
+      socket.to(sessionId).emit('content-update', content)
+      console.log(`✅ Broadcasted content update to session ${sessionId}`)
+
+      const updatedSession = sessionManager.getSession(sessionId)
+      if (updatedSession) {
+        io.to(sessionId).emit('session-updated', updatedSession)
+        console.log(`📤 Sent session-updated to all users in ${sessionId}`)
+      }
+    } else {
+      console.log(`❌ Failed to update content in session ${sessionId}`)
     }
   })
 

@@ -11,7 +11,10 @@ interface RhythmFeedbackProps {
 }
 
 export default function RhythmFeedback({ currentUser, onlineUsers = [] }: RhythmFeedbackProps) {
-  const { currentSession } = useSessionStore()
+  const { currentSession, demoUsers, isDemoMode } = useSessionStore()
+  
+  // Use demo users if in demo mode, otherwise use online users
+  const displayUsers = isDemoMode ? demoUsers : onlineUsers
 
   const sessionDuration = currentSession
     ? Math.floor((Date.now() - currentSession.createdAt) / 1000)
@@ -41,10 +44,10 @@ export default function RhythmFeedback({ currentUser, onlineUsers = [] }: Rhythm
         <div>
           <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
             <UserIcon className="w-4 h-4" />
-            Online Participants ({onlineUsers.length})
+            {isDemoMode ? 'Demo Participants' : 'Online Participants'} ({displayUsers.length})
           </h3>
           <div className="space-y-2">
-            {onlineUsers.map((user) => (
+            {displayUsers.map((user) => (
               <div key={user.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50">
                 <div
                   className="w-4 h-4 rounded-full"
@@ -54,9 +57,12 @@ export default function RhythmFeedback({ currentUser, onlineUsers = [] }: Rhythm
                 {user.id === currentUser.id && (
                   <span className="text-xs text-rhythm-primary font-medium">You</span>
                 )}
+                {isDemoMode && user.name === 'Demo User' && (
+                  <span className="text-xs text-purple-600 font-medium">Sim</span>
+                )}
               </div>
             ))}
-            {onlineUsers.length === 0 && (
+            {displayUsers.length === 0 && (
               <div className="text-sm text-gray-500 italic">No other participants online</div>
             )}
           </div>
@@ -98,7 +104,7 @@ export default function RhythmFeedback({ currentUser, onlineUsers = [] }: Rhythm
           </div>
           <div className="flex justify-between">
             <span>Active Participants:</span>
-            <span className="font-mono">{onlineUsers.length}</span>
+            <span className="font-mono">{displayUsers.length}</span>
           </div>
         </div>
       </div>

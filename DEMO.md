@@ -50,15 +50,30 @@
 
 ## Multi-User Simulation
 
-To test multi-user features (simulated):
+### Demo Mode with User Switching
 
-1. Type rapidly for 30 seconds, then pause
-2. Record a 10-second voice message
-3. Type slowly for another minute
-4. Check the session summary to see:
-   - Participation distribution
-   - Activity patterns
-   - Rhythm analysis
+The demo session now includes a **User Switcher** that allows you to test multi-user collaboration features:
+
+1. **Join Demo Session**: Click "Quick Demo Session" to enter demo mode
+2. **User Switcher**: In the right sidebar, you'll see a "Demo Mode" panel with two users:
+   - Your real user (with your chosen name)
+   - A simulated "Demo User" 
+3. **Switch Users**: Click on either user to switch between them
+4. **Simulated Activity**: The Demo User will automatically generate typing and voice activity
+5. **Track Contributions**: All UI components now show contributions from both users:
+   - Activity bars show both users' typing and voice rates
+   - Burst timeline displays activity from both users
+   - Balance indicator shows participation distribution
+   - Session summary includes both users' metrics
+
+### Testing Multi-User Features
+
+1. **Switch to Demo User**: Click on "Demo User" in the switcher
+2. **Observe Activity**: Watch the Demo User generate automatic activity
+3. **Switch Back**: Click on your real user to contribute manually
+4. **Type and Record**: Add your own typing and voice contributions
+5. **Watch Balance**: See how the balance indicator changes as both users contribute
+6. **Check Timeline**: View the burst timeline showing activity from both users
 
 ## Key Observations
 
@@ -71,11 +86,12 @@ The system focuses on **rhythm and patterns**, not content:
 
 ## Expected Demo Flow
 
-1. **Setup** (30 seconds): Join session, see clean interface
-2. **Type & Talk** (2 minutes): Alternate between typing and voice recording
-3. **Watch Metrics** (ongoing): Observe live activity bars and timeline
-4. **Session Summary** (30 seconds): Export and review participation data
-5. **Insights** (1 minute): Discuss rhythm patterns vs content analysis
+1. **Setup** (30 seconds): Join demo session, see user switcher in sidebar
+2. **User Switching** (1 minute): Switch between real user and demo user, observe automatic activity
+3. **Type & Talk** (2 minutes): Add your own contributions while demo user generates activity
+4. **Watch Metrics** (ongoing): Observe live activity bars, timeline, and balance from both users
+5. **Session Summary** (30 seconds): Export and review participation data from both users
+6. **Insights** (1 minute): Discuss rhythm patterns, multi-user balance, and contribution tracking
 
 ## Architecture Highlights
 

@@ -43,6 +43,7 @@ export interface RhythmSession {
   participants: User[]
   voiceContributions: VoiceContribution[]
   typingActivities: TypingActivity[]
+  sharedContent: string  // Add shared content
   settings: SessionSettings
   createdAt: number
   isActive: boolean

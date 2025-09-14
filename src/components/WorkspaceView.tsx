@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { User } from '../types'
 import { useSessionStore } from '../stores/sessionStore'
 import CollaborationSurface from './CollaborationSurface'
 import RhythmFeedback from './RhythmFeedback'
 import SessionHeader from './SessionHeader'
 import SessionSummary from './SessionSummary'
+import UserSwitcher from './UserSwitcher'
 
 interface WorkspaceViewProps {
   currentUser: User
@@ -13,8 +14,34 @@ interface WorkspaceViewProps {
 }
 
 export default function WorkspaceView({ currentUser, sessionId, onLeaveSession }: WorkspaceViewProps) {
-  const { currentSession, leaveSession, onlineUsers, connectionStatus } = useSessionStore()
+  const { 
+    currentSession, 
+    leaveSession, 
+    onlineUsers, 
+    connectionStatus, 
+    initializeDemoMode, 
+    simulateDemoUserActivity,
+    isDemoMode 
+  } = useSessionStore()
   const [showSummary, setShowSummary] = useState(false)
+
+  // Initialize demo mode if this is a demo session
+  useEffect(() => {
+    if (sessionId === 'demo-session' && !isDemoMode) {
+      initializeDemoMode(currentUser)
+    }
+  }, [sessionId, currentUser, initializeDemoMode, isDemoMode])
+
+  // Set up demo user activity simulation
+  useEffect(() => {
+    if (isDemoMode) {
+      const interval = setInterval(() => {
+        simulateDemoUserActivity()
+      }, 3000 + Math.random() * 5000) // Random interval between 3-8 seconds
+
+      return () => clearInterval(interval)
+    }
+  }, [isDemoMode, simulateDemoUserActivity])
 
   const handleLeaveSession = () => {
     leaveSession(currentUser.id)
@@ -53,8 +80,13 @@ export default function WorkspaceView({ currentUser, sessionId, onLeaveSession }
           <CollaborationSurface currentUser={currentUser} />
         </div>
 
-        <div className="w-80 border-l border-gray-200 bg-white">
-          <RhythmFeedback currentUser={currentUser} onlineUsers={onlineUsers} />
+        <div className="w-80 border-l border-gray-200 bg-white flex flex-col">
+          <div className="p-4 border-b border-gray-200">
+            <UserSwitcher />
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <RhythmFeedback currentUser={currentUser} onlineUsers={onlineUsers} />
+          </div>
         </div>
       </div>
 

@@ -10,10 +10,21 @@ interface CollaborationSurfaceProps {
 }
 
 export default function CollaborationSurface({ currentUser }: CollaborationSurfaceProps) {
-  const [content, setContent] = useState('')
   const [lastKeystroke, setLastKeystroke] = useState<number>(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const { addTypingActivity } = useSessionStore()
+  const { 
+    currentSession, 
+    addTypingActivity, 
+    updateSharedContent, 
+    currentActiveUser, 
+    isDemoMode 
+  } = useSessionStore()
+
+  // Use current active user in demo mode, otherwise use the prop
+  const activeUser = isDemoMode && currentActiveUser ? currentActiveUser : currentUser
+
+  // Use shared content from session
+  const content = currentSession?.sharedContent || ''
 
   const handleContentChange = (newContent: string) => {
     const now = Date.now()
@@ -23,25 +34,25 @@ export default function CollaborationSurface({ currentUser }: CollaborationSurfa
       oldLength: content.length,
       newLength: newContent.length,
       charsDiff,
-      userId: currentUser.id
+      userId: activeUser.id,
+      isDemoMode
     })
+
+    // Update shared content immediately
+    updateSharedContent(newContent, true)
 
     if (charsDiff !== 0) {
       const activity = {
-        userId: currentUser.id,
+        userId: activeUser.id,
         timestamp: now,
         charsAdded: Math.max(0, charsDiff),
         charsDeleted: Math.max(0, -charsDiff),
         burstDuration: now - lastKeystroke < 2000 ? now - lastKeystroke : 0
       }
 
-      console.log('⌨️ [CollaborationSurface] Calling addTypingActivity', activity)
-      addTypingActivity(activity)
-
+      addTypingActivity(activity, true)
       setLastKeystroke(now)
     }
-
-    setContent(newContent)
   }
 
   useEffect(() => {
@@ -59,12 +70,16 @@ export default function CollaborationSurface({ currentUser }: CollaborationSurfa
             <Edit3 className="w-4 h-4 text-gray-600" />
           </div>
           <h2 className="text-lg font-semibold text-gray-900">Shared Workspace</h2>
+          <div className="ml-auto flex items-center gap-2 text-sm text-gray-500">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span>Live collaboration</span>
+          </div>
         </div>
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="p-6 border-b border-gray-100">
-          <VoiceControls currentUser={currentUser} />
+          <VoiceControls currentUser={activeUser} />
         </div>
 
         <div className="flex-1 flex overflow-hidden">
@@ -91,7 +106,12 @@ export default function CollaborationSurface({ currentUser }: CollaborationSurfa
             <div className="text-xs text-gray-500 flex justify-between">
               <span>{content.length} characters</span>
               <span>
-                User: <span style={{ color: currentUser.color }}>{currentUser.name}</span>
+                Active User: <span style={{ color: activeUser.color }}>{activeUser.name}</span>
+                {isDemoMode && (
+                  <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
+                    Demo
+                  </span>
+                )}
               </span>
             </div>
           </div>

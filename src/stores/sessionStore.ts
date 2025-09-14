@@ -7,6 +7,9 @@ interface SessionState {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error'
   onlineUsers: User[]
   isInitialized: boolean
+  currentActiveUser: User | null
+  demoUsers: User[]
+  isDemoMode: boolean
 
   // Session management
   setSession: (session: RhythmSession) => void
@@ -15,10 +18,18 @@ interface SessionState {
   leaveSession: (userId: string) => void
   clearSession: () => void
 
+  // User switching (demo mode)
+  switchToUser: (user: User) => void
+  initializeDemoMode: (realUser: User) => void
+  simulateDemoUserActivity: () => void
+
   // Activity management
   addVoiceContribution: (contribution: VoiceContribution, broadcast?: boolean) => void
   addTypingActivity: (activity: TypingActivity, broadcast?: boolean) => void
   updateSettings: (settings: Partial<RhythmSession['settings']>) => void
+  
+  // Content management
+  updateSharedContent: (content: string, broadcast?: boolean) => void
 
   // Connection management
   initializeSocket: () => Promise<void>
@@ -33,116 +44,47 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   connectionStatus: 'disconnected',
   onlineUsers: [],
   isInitialized: false,
+  currentActiveUser: null,
+  demoUsers: [],
+  isDemoMode: false,
 
   // Session management
   setSession: (session) => set({ currentSession: session }),
 
   createSession: async (sessionName: string, user: User) => {
-    const startTime = Date.now()
     try {
-      console.log('🔄 [SessionStore] Attempting to create session:', sessionName, 'as user:', user.name)
-      console.log('🔍 [SessionStore] User details:', user)
-      console.log('🔍 [SessionStore] Current store state before create:', {
-        currentSession: get().currentSession?.id || 'none',
-        connectionStatus: get().connectionStatus,
-        isInitialized: get().isInitialized
-      })
-
-      // Ensure socket is initialized and connected first
-      if (!get().isInitialized || get().connectionStatus !== 'connected') {
-        console.log('🔌 [SessionStore] Socket not ready, initializing first...')
-        set({ connectionStatus: 'connecting' })
-        await get().initializeSocket()
-      }
-
-      // Verify socket is actually connected before proceeding
-      if (!socketService.isConnected()) {
-        console.error('❌ [SessionStore] Socket not connected after initialization')
-        throw new Error('Failed to establish socket connection')
-      }
-
-      console.log('🔄 [SessionStore] Socket ready, calling socketService.createSession')
-
+      console.log('🔄 Attempting to create session:', sessionName, 'as user:', user.name)
+      set({ connectionStatus: 'connecting' })
+      
+      // Ensure socket is connected and event listeners are set up
+      await get().initializeSocket()
+      
       const session = await socketService.createSession(sessionName, user)
-      const duration = Date.now() - startTime
-
-      console.log('✅ [SessionStore] Successfully created session:', session)
-      console.log('🔍 [SessionStore] Session creation took:', duration + 'ms')
-      console.log('🔍 [SessionStore] Session details:', {
-        id: session.id,
-        name: session.name,
-        participantCount: session.participants.length,
-        createdAt: new Date(session.createdAt).toISOString()
-      })
-
+      console.log('✅ Successfully created session:', session)
       set({ currentSession: session, connectionStatus: 'connected' })
-      console.log('✅ [SessionStore] Store updated with new session')
     } catch (error) {
-      const duration = Date.now() - startTime
-      console.error('❌ [SessionStore] Failed to create session after', duration + 'ms:', error)
-      console.error('🔍 [SessionStore] Error details:', {
-        name: (error as Error)?.name,
-        message: (error as Error)?.message,
-        stack: (error as Error)?.stack?.split('\n').slice(0, 3)
-      })
+      console.error('❌ Failed to create session:', error)
       set({ connectionStatus: 'error' })
       throw error
     }
   },
 
   joinSession: async (sessionId: string, user: User) => {
-    const startTime = Date.now()
     try {
-      console.log('🚪 [SessionStore] Attempting to join session:', sessionId, 'as user:', user.name)
-      console.log('🔍 [SessionStore] User details:', user)
-      console.log('🔍 [SessionStore] Current store state before join:', {
-        currentSession: get().currentSession?.id || 'none',
-        connectionStatus: get().connectionStatus,
-        isInitialized: get().isInitialized
-      })
-
-      // Ensure socket is initialized and connected first
-      if (!get().isInitialized || get().connectionStatus !== 'connected') {
-        console.log('🔌 [SessionStore] Socket not ready, initializing first...')
-        set({ connectionStatus: 'connecting' })
-        await get().initializeSocket()
-      }
-
-      // Verify socket is actually connected before proceeding
-      if (!socketService.isConnected()) {
-        console.error('❌ [SessionStore] Socket not connected after initialization')
-        throw new Error('Failed to establish socket connection')
-      }
-
-      console.log('🚪 [SessionStore] Socket ready, calling socketService.joinSession')
-
+      console.log('🔄 Attempting to join session:', sessionId, 'as user:', user.name)
+      set({ connectionStatus: 'connecting' })
+      
+      // Ensure socket is connected and event listeners are set up
+      await get().initializeSocket()
+      
       const session = await socketService.joinSession(sessionId, user)
-      const duration = Date.now() - startTime
-
-      console.log('✅ [SessionStore] Successfully joined session:', session)
-      console.log('🔍 [SessionStore] Session join took:', duration + 'ms')
-      console.log('🔍 [SessionStore] Session details:', {
-        id: session.id,
-        name: session.name,
-        participantCount: session.participants.length,
-        userIsParticipant: session.participants.some(p => p.id === user.id)
-      })
-
+      console.log('✅ Successfully joined session:', session)
       set({ currentSession: session, connectionStatus: 'connected' })
-      console.log('✅ [SessionStore] Store updated with joined session')
 
       // Request current presence
-      console.log('👥 [SessionStore] Requesting current presence for session:', sessionId)
       socketService.requestPresence(sessionId)
     } catch (error) {
-      const duration = Date.now() - startTime
-      console.error('❌ [SessionStore] Failed to join session after', duration + 'ms:', error)
-      console.error('🔍 [SessionStore] Error details:', {
-        sessionId,
-        name: (error as Error)?.name,
-        message: (error as Error)?.message,
-        stack: (error as Error)?.stack?.split('\n').slice(0, 3)
-      })
+      console.error('❌ Failed to join session:', error)
       set({ connectionStatus: 'error' })
       throw error
     }
@@ -163,8 +105,71 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   clearSession: () => set({
     currentSession: null,
     connectionStatus: 'disconnected',
-    onlineUsers: []
+    onlineUsers: [],
+    currentActiveUser: null,
+    demoUsers: [],
+    isDemoMode: false
   }),
+
+  // User switching (demo mode)
+  switchToUser: (user: User) => {
+    set({ currentActiveUser: user })
+  },
+
+  initializeDemoMode: (realUser: User) => {
+    const { isDemoMode } = get()
+    
+    // Don't initialize if already in demo mode
+    if (isDemoMode) return
+    
+    const demoUser: User = {
+      id: 'demo-user-fixed', // Use a fixed ID to prevent duplicates
+      name: 'Demo User',
+      color: '#8b5cf6'
+    }
+    
+    set({ 
+      isDemoMode: true,
+      currentActiveUser: realUser,
+      demoUsers: [realUser, demoUser]
+    })
+
+    // Note: We don't add demo users to the session participants anymore
+    // Instead, we handle demo users at the display level in components
+  },
+
+  simulateDemoUserActivity: () => {
+    const { currentSession, demoUsers, isDemoMode } = get()
+    if (!isDemoMode || !currentSession || demoUsers.length < 2) return
+
+    const demoUser = demoUsers.find(u => u.id === 'demo-user-fixed')
+    if (!demoUser) return
+
+    // Simulate typing activity
+    const now = Date.now()
+    const typingActivity: TypingActivity = {
+      userId: demoUser.id,
+      timestamp: now,
+      charsAdded: Math.floor(Math.random() * 5) + 1,
+      charsDeleted: Math.random() > 0.8 ? Math.floor(Math.random() * 2) : 0,
+      burstDuration: Math.random() > 0.5 ? Math.floor(Math.random() * 3000) + 1000 : 0
+    }
+
+    get().addTypingActivity(typingActivity, false)
+
+    // Occasionally simulate voice contribution
+    if (Math.random() > 0.9) {
+      const voiceContribution: VoiceContribution = {
+        id: 'demo-voice-' + Math.random().toString(36).substr(2, 9),
+        userId: demoUser.id,
+        timestamp: now,
+        duration: Math.floor(Math.random() * 10000) + 3000,
+        transcription: 'This is a simulated voice contribution from the demo user.',
+        volume: Math.random() * 0.5 + 0.3
+      }
+      get().addVoiceContribution(voiceContribution, false)
+    }
+  },
 
   // Activity management
   addVoiceContribution: (contribution, broadcast = true) => {
@@ -177,7 +182,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         : null,
     }))
 
-    if (broadcast && get().currentSession) {
+    if (broadcast && get().currentSession && !get().isDemoMode) {
       socketService.broadcastVoiceContribution(get().currentSession!.id, contribution)
     }
   },
@@ -193,7 +198,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         : null,
     }))
 
-    if (broadcast && get().currentSession) {
+    if (broadcast && get().currentSession && !get().isDemoMode) {
       console.log('📤 [SessionStore] Broadcasting typing activity for session:', get().currentSession!.id)
       socketService.broadcastTypingActivity(get().currentSession!.id, activity)
     } else if (!get().currentSession) {
@@ -211,75 +216,92 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         : null,
     })),
 
+  // Content management
+  updateSharedContent: (content, broadcast = true) => {
+    console.log('📝 [SessionStore] Updating shared content', { contentLength: content.length, broadcast })
+    
+    set((state) => ({
+      currentSession: state.currentSession
+        ? {
+            ...state.currentSession,
+            sharedContent: content,
+          }
+        : null,
+    }))
+
+    if (broadcast && get().currentSession && !get().isDemoMode) {
+      console.log('📤 [SessionStore] Broadcasting content update for session:', get().currentSession!.id)
+      socketService.broadcastContentUpdate(get().currentSession!.id, content)
+    }
+  },
+
   // Connection management
   initializeSocket: async () => {
     const state = get()
-    console.log('🔌 [SessionStore] InitializeSocket called')
-    console.log('🔍 [SessionStore] Current state:', {
-      isInitialized: state.isInitialized,
-      connectionStatus: state.connectionStatus,
-      currentSession: state.currentSession?.id || 'none'
-    })
+    
+    // Always ensure socket is connected, but only set up event listeners once
+    if (!state.isInitialized) {
+      const startTime = Date.now()
+      try {
+        console.log('🔌 [SessionStore] Initializing socket connection...')
+        set({ connectionStatus: 'connecting' })
 
-    // If we're in error state, reset the socket first
-    if (state.connectionStatus === 'error') {
-      console.log('🔄 [SessionStore] Connection in error state, resetting socket')
-      socketService.reset()
-      set({ connectionStatus: 'disconnected', isInitialized: false })
-    }
+        console.log('🔌 [SessionStore] Calling socketService.connect()')
+        await socketService.connect()
+        const duration = Date.now() - startTime
 
-    if (state.connectionStatus === 'connected' || state.connectionStatus === 'connecting') {
-      console.log('🚫 [SessionStore] Socket already connected or connecting, skipping')
-      return
-    }
+        console.log('✅ [SessionStore] Socket connected successfully in', duration + 'ms')
+        set({ connectionStatus: 'connected', isInitialized: true })
 
-    const startTime = Date.now()
-    try {
-      console.log('🔌 [SessionStore] Setting connection status to connecting')
-      set({ connectionStatus: 'connecting' })
+        // Set up event listeners
+        socketService.onSessionUpdated((session) => {
+          set({ currentSession: session })
+        })
 
-      console.log('🔌 [SessionStore] Calling socketService.connect()')
-      await socketService.connect()
-      const duration = Date.now() - startTime
+        socketService.onUserJoined((user) => {
+          get().addUser(user)
+        })
 
-      console.log('✅ [SessionStore] Socket connected successfully in', duration + 'ms')
-      set({ connectionStatus: 'connected', isInitialized: true })
+        socketService.onUserLeft((userId) => {
+          get().removeUser(userId)
+        })
 
-      // Set up event listeners
-      socketService.onSessionUpdated((session) => {
-        set({ currentSession: session })
-      })
+        socketService.onVoiceContribution((contribution) => {
+          get().addVoiceContribution(contribution, false) // Don't re-broadcast
+        })
 
-      socketService.onUserJoined((user) => {
-        get().addUser(user)
-      })
+        socketService.onTypingActivity((activity) => {
+          get().addTypingActivity(activity, false) // Don't re-broadcast
+        })
 
-      socketService.onUserLeft((userId) => {
-        get().removeUser(userId)
-      })
+        socketService.onContentUpdate((content) => {
+          console.log('🔥 [DEBUG] Received content-update event!', { contentLength: content.length })
+          get().updateSharedContent(content, false) // Don't re-broadcast
+        })
 
-      socketService.onVoiceContribution((contribution) => {
-        get().addVoiceContribution(contribution, false) // Don't re-broadcast
-      })
+        socketService.onUserPresence((users) => {
+          set({ onlineUsers: users })
+        })
 
-      socketService.onTypingActivity((activity) => {
-        get().addTypingActivity(activity, false) // Don't re-broadcast
-      })
+        console.log('✅ [SessionStore] Socket initialized and event listeners registered')
 
-      socketService.onUserPresence((users) => {
-        set({ onlineUsers: users })
-      })
-
-    } catch (error) {
-      const duration = Date.now() - startTime
-      console.error('❌ [SessionStore] Failed to initialize socket after', duration + 'ms:', error)
-      console.error('🔍 [SessionStore] Socket initialization error details:', {
-        name: (error as Error)?.name,
-        message: (error as Error)?.message,
-        stack: (error as Error)?.stack?.split('\n').slice(0, 3)
-      })
-      set({ connectionStatus: 'error' })
-      throw error
+      } catch (error) {
+        const duration = Date.now() - startTime
+        console.error('❌ [SessionStore] Failed to initialize socket after', duration + 'ms:', error)
+        console.error('🔍 [SessionStore] Socket initialization error details:', {
+          name: (error as Error)?.name,
+          message: (error as Error)?.message,
+          stack: (error as Error)?.stack?.split('\n').slice(0, 3)
+        })
+        set({ connectionStatus: 'error' })
+        throw error
+      }
+    } else {
+      console.log('🔌 [SessionStore] Socket already initialized, ensuring connection...')
+      if (!socketService.isConnected()) {
+        await socketService.connect()
+        set({ connectionStatus: 'connected' })
+      }
     }
   },
 

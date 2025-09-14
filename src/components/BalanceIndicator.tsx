@@ -10,11 +10,14 @@ interface BalanceData {
 }
 
 export default function BalanceIndicator() {
-  const { currentSession } = useSessionStore()
+  const { currentSession, demoUsers, isDemoMode } = useSessionStore()
   const [balance, setBalance] = useState<BalanceData>({
     score: 1.0,
     level: 'good'
   })
+  
+  // Use demo users if in demo mode, otherwise use session participants
+  const displayUsers = isDemoMode ? demoUsers : (currentSession?.participants || [])
 
   useEffect(() => {
     if (!currentSession) return
@@ -23,7 +26,7 @@ export default function BalanceIndicator() {
       const now = Date.now()
       const windowSize = 120000
 
-      const participantActivity = currentSession.participants.map(user => {
+      const participantActivity = displayUsers.map(user => {
         const recentTyping = currentSession.typingActivities.filter(
           activity => activity.userId === user.id && (now - activity.timestamp) < windowSize
         )
@@ -67,15 +70,15 @@ export default function BalanceIndicator() {
       let level: 'good' | 'warning' | 'danger' = 'good'
       let suggestion: string | undefined
 
-      if (maxRatio > 0.8 && currentSession.participants.length > 1) {
+      if (maxRatio > 0.8 && displayUsers.length > 1) {
         level = 'danger'
         suggestion = `${dominantUser?.userName} is dominating the conversation. Consider inviting others to contribute.`
-      } else if (maxRatio > 0.6 && currentSession.participants.length > 1) {
+      } else if (maxRatio > 0.6 && displayUsers.length > 1) {
         level = 'warning'
         suggestion = 'Contribution is somewhat unbalanced. Try to encourage more participation from quieter voices.'
       }
 
-      const expectedActiveRatio = 1 / Math.max(currentSession.participants.length, 1)
+      const expectedActiveRatio = 1 / Math.max(displayUsers.length, 1)
       const balanceScore = 1 - Math.abs(maxRatio - expectedActiveRatio)
 
       setBalance({
@@ -90,7 +93,7 @@ export default function BalanceIndicator() {
     const interval = setInterval(calculateBalance, 5000)
 
     return () => clearInterval(interval)
-  }, [currentSession])
+  }, [currentSession, displayUsers])
 
   if (!currentSession) return null
 
@@ -160,7 +163,7 @@ export default function BalanceIndicator() {
           Participation Distribution
         </h4>
         
-        {currentSession.participants.map(user => {
+        {displayUsers.map(user => {
           const now = Date.now()
           const windowSize = 120000
           
@@ -174,7 +177,7 @@ export default function BalanceIndicator() {
           const activity = recentTyping.reduce((sum, act) => sum + act.charsAdded + act.charsDeleted, 0) +
                           recentVoice.reduce((sum, cont) => sum + cont.duration / 100, 0)
           
-          const totalActivity = currentSession.participants.reduce((total, p) => {
+          const totalActivity = displayUsers.reduce((total, p) => {
             const pTyping = currentSession.typingActivities.filter(
               act => act.userId === p.id && (now - act.timestamp) < windowSize
             )

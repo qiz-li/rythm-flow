@@ -11,8 +11,11 @@ interface BurstEvent {
 }
 
 export default function BurstTimeline() {
-  const { currentSession } = useSessionStore()
+  const { currentSession, demoUsers, isDemoMode } = useSessionStore()
   const [bursts, setBursts] = useState<BurstEvent[]>([])
+  
+  // Use demo users if in demo mode, otherwise use session participants
+  const displayUsers = isDemoMode ? demoUsers : (currentSession?.participants || [])
 
   useEffect(() => {
     if (!currentSession) return
@@ -55,7 +58,7 @@ export default function BurstTimeline() {
     const interval = setInterval(calculateBursts, 2000)
 
     return () => clearInterval(interval)
-  }, [currentSession])
+  }, [currentSession, displayUsers])
 
   if (!currentSession || bursts.length === 0) {
     return (
@@ -90,7 +93,7 @@ export default function BurstTimeline() {
         </div>
         
         {bursts.map(burst => {
-          const user = currentSession.participants.find(p => p.id === burst.userId)
+          const user = displayUsers.find(p => p.id === burst.userId)
           const position = ((burst.start - startTime) / timeWindow) * 100
           const width = Math.max((burst.duration / timeWindow) * 100, 0.5)
           
@@ -112,7 +115,7 @@ export default function BurstTimeline() {
 
       <div className="space-y-2 max-h-48 overflow-y-auto">
         {bursts.slice(0, 10).map(burst => {
-          const user = currentSession.participants.find(p => p.id === burst.userId)
+          const user = displayUsers.find(p => p.id === burst.userId)
           
           return (
             <div

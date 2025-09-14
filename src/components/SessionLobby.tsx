@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { User } from '../types'
+import { User, TypingBaseline } from '../types'
 import { useSessionStore } from '../stores/sessionStore'
 import { userPreferencesService } from '../services/userPreferencesService'
 import { Users, Plus, Settings, Wifi, WifiOff, Loader } from 'lucide-react'
@@ -30,6 +30,7 @@ const getAvailableColor = (existingParticipants: User[]): string => {
 export default function SessionLobby({ onJoinSession }: SessionLobbyProps) {
   const [userName, setUserName] = useState('')
   const [userColor, setUserColor] = useState(userColors[Math.floor(Math.random() * userColors.length)])
+  const [savedTypingBaseline, setSavedTypingBaseline] = useState<TypingBaseline | null>(null)
   const [sessionName, setSessionName] = useState('')
   const [sessionId, setSessionId] = useState('')
   const [isCreating, setIsCreating] = useState(false)
@@ -63,6 +64,7 @@ export default function SessionLobby({ onJoinSession }: SessionLobbyProps) {
     if (savedPrefs) {
       setUserName(savedPrefs.name)
       setUserColor(savedPrefs.color)
+      setSavedTypingBaseline(savedPrefs.typingBaseline || null)
       addDebugLog('Loaded saved user preferences', savedPrefs)
     }
   }, [])
@@ -99,7 +101,8 @@ export default function SessionLobby({ onJoinSession }: SessionLobbyProps) {
     const user: User = {
       id: generateUserId(),
       name: userName.trim(),
-      color: getAvailableColor([]) // No existing participants for session creation
+      color: getAvailableColor([]), // No existing participants for session creation
+      typingBaseline: savedTypingBaseline || undefined
     }
 
     addDebugLog('Generated user for session creation', user)
@@ -149,7 +152,8 @@ export default function SessionLobby({ onJoinSession }: SessionLobbyProps) {
     const user: User = {
       id: generateUserId(),
       name: userName.trim(),
-      color: userColor // Server will handle color conflicts automatically
+      color: userColor, // Server will handle color conflicts automatically
+      typingBaseline: savedTypingBaseline || undefined
     }
 
     addDebugLog('Generated user for session joining', user)
@@ -210,7 +214,8 @@ export default function SessionLobby({ onJoinSession }: SessionLobbyProps) {
     const user: User = {
       id: generateUserId(),
       name: userName.trim(),
-      color: userColor
+      color: userColor,
+      typingBaseline: savedTypingBaseline || undefined
     }
 
     addDebugLog('Generated user for demo session', user)

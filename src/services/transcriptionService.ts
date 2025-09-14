@@ -1,8 +1,8 @@
 import { openaiWhisperService } from './openaiWhisperService'
-import { whisperCppService } from './whisperCppService'
 import { mockTranscriptionService } from './mockTranscriptionService'
+import { webSpeechService } from './webSpeechService'
 
-export type TranscriptionModel = 'openai-whisper' | 'whisper-cpp' | 'auto'
+export type TranscriptionModel = 'web-speech' | 'openai-whisper' | 'auto'
 
 interface TranscriptionResult {
   text: string
@@ -43,7 +43,7 @@ class TranscriptionService {
   }
 
   private isValidModel(model: string): boolean {
-    return ['openai-whisper', 'whisper-cpp', 'auto'].includes(model)
+    return ['web-speech', 'openai-whisper', 'auto'].includes(model)
   }
 
   setModel(model: TranscriptionModel) {
@@ -61,24 +61,24 @@ class TranscriptionService {
       {
         id: 'auto',
         name: 'Auto Select',
-        description: 'Automatically choose the best available model',
+        description: 'Automatically choose the best available model (Web Speech API preferred)',
         isAvailable: true,
-        isOpenSource: true,
+        isOpenSource: false,
         requiresApiKey: false,
         provider: 'Mixed'
       },
       {
-        id: 'whisper-cpp',
-        name: 'Whisper.cpp (Local)',
-        description: 'Client-side Whisper model (free, private, works offline)',
-        isAvailable: whisperCppService.isAvailable(),
-        isOpenSource: true,
+        id: 'web-speech',
+        name: 'Web Speech API (Live)',
+        description: 'Browser-based real-time transcription (Chrome/Edge recommended)',
+        isAvailable: webSpeechService.isSupported(),
+        isOpenSource: false,
         requiresApiKey: false,
-        provider: 'Local Browser'
+        provider: 'Browser/Google'
       },
       {
         id: 'openai-whisper',
-        name: 'OpenAI Whisper',
+        name: 'OpenAI Whisper (Fallback)',
         description: 'High-accuracy cloud-based transcription (requires API key)',
         isAvailable: openaiWhisperService.isAvailable(),
         isOpenSource: false,
@@ -88,36 +88,52 @@ class TranscriptionService {
     ]
   }
 
-  private selectBestModel(): 'openai-whisper' | 'whisper-cpp' {
-    // Prefer local Whisper.cpp when available (free, private, works offline)
-    if (whisperCppService.isAvailable()) {
-      return 'whisper-cpp'
-    }
+  private selectBestModel(): 'web-speech' | 'openai-whisper' {
+    // Note: Web Speech API is primarily used for live transcription in VoiceControls
+    // This fallback is for any remaining batch transcription needs
 
-    // Fall back to OpenAI Whisper if available
+    // Prefer OpenAI Whisper for batch transcription (higher accuracy)
     if (openaiWhisperService.isAvailable()) {
       return 'openai-whisper'
     }
 
-    // Default to local Whisper.cpp (will show error if not supported)
-    return 'whisper-cpp'
+    // Fallback to Web Speech for batch if available
+    if (webSpeechService.isSupported()) {
+      return 'web-speech'
+    }
+
+    // Default to OpenAI Whisper (will show error if not configured)
+    return 'openai-whisper'
   }
 
   async transcribeAudio(audioBlob: Blob): Promise<TranscriptionResult | TranscriptionError> {
-    let modelToUse: 'openai-whisper' | 'whisper-cpp'
+    // Note: This method is primarily for fallback batch transcription
+    // Live transcription is handled directly by VoiceControls using webSpeechService
+
+    let modelToUse: 'web-speech' | 'openai-whisper'
 
     if (this.currentModel === 'auto') {
       modelToUse = this.selectBestModel()
+    } else if (this.currentModel === 'web-speech') {
+      // Web Speech API doesn't support batch transcription from audio blobs
+      // Fall back to OpenAI Whisper for this use case
+      console.log('Web Speech API selected but not suitable for batch transcription, using OpenAI Whisper')
+      modelToUse = 'openai-whisper'
     } else {
-      modelToUse = this.currentModel as 'openai-whisper' | 'whisper-cpp'
+      modelToUse = this.currentModel as 'web-speech' | 'openai-whisper'
     }
 
-    console.log(`Using transcription model: ${modelToUse}`)
+    console.log(`Using transcription model for batch processing: ${modelToUse}`)
 
     try {
       switch (modelToUse) {
-        case 'whisper-cpp':
-          return await whisperCppService.transcribeAudio(audioBlob)
+        case 'web-speech':
+          // Web Speech API doesn't support blob transcription
+          // This should not happen due to the check above, but handle it gracefully
+          return {
+            error: 'Web Speech API does not support batch audio transcription. Use live transcription instead.',
+            code: 'UNSUPPORTED_OPERATION'
+          }
 
         case 'openai-whisper':
           return await openaiWhisperService.transcribeAudio(audioBlob)
@@ -131,44 +147,10 @@ class TranscriptionService {
     } catch (error: any) {
       console.error(`Transcription failed with model ${modelToUse}:`, error)
 
-      // Enhanced fallback logic for auto mode
-      if (this.currentModel === 'auto') {
-        if (modelToUse === 'whisper-cpp') {
-          // Try OpenAI Whisper first if available
-          if (openaiWhisperService.isAvailable()) {
-            console.log('Whisper.cpp failed, falling back to OpenAI Whisper')
-            try {
-              return await openaiWhisperService.transcribeAudio(audioBlob)
-            } catch (fallbackError: any) {
-              console.error('OpenAI Whisper also failed:', fallbackError)
-            }
-          }
-
-          // If all else fails, use mock service for demo purposes
-          console.log('All production models failed, falling back to mock transcription for demo')
-          try {
-            const result = await mockTranscriptionService.transcribeAudio(audioBlob)
-            // Add a note to indicate this is a mock result
-            if ('text' in result) {
-              result.text = result.text + ' [Demo Mode - Real transcription unavailable]'
-            }
-            return result
-          } catch (mockError: any) {
-            console.error('Even mock service failed:', mockError)
-          }
-
-        } else if (modelToUse === 'openai-whisper') {
-          // Try Whisper.cpp fallback if available
-          if (whisperCppService.isAvailable()) {
-            console.log('OpenAI Whisper failed, falling back to Whisper.cpp')
-            try {
-              return await whisperCppService.transcribeAudio(audioBlob)
-            } catch (fallbackError: any) {
-              console.error('Whisper.cpp also failed:', fallbackError)
-            }
-          }
-
-          // Mock service fallback
+      // Fallback logic for auto mode
+      if (this.currentModel === 'auto' || this.currentModel === 'web-speech') {
+        if (modelToUse === 'openai-whisper') {
+          // Use mock service fallback for demo purposes
           console.log('OpenAI Whisper failed, falling back to mock transcription for demo')
           try {
             const result = await mockTranscriptionService.transcribeAudio(audioBlob)
@@ -207,16 +189,16 @@ class TranscriptionService {
   async testConnection(): Promise<{ model: string; success: boolean; error?: string }[]> {
     const results = []
 
-    // Test Whisper.cpp
+    // Test Web Speech API
     try {
-      const whisperCppResult = await whisperCppService.testConnection()
+      const webSpeechResult = await webSpeechService.testConnection()
       results.push({
-        model: 'whisper-cpp',
-        success: whisperCppResult
+        model: 'web-speech',
+        success: webSpeechResult
       })
     } catch (error: any) {
       results.push({
-        model: 'whisper-cpp',
+        model: 'web-speech',
         success: false,
         error: error.message
       })

@@ -9,7 +9,18 @@ app.use(cors())
 const httpServer = createServer(app)
 const io = new Server(httpServer, {
   cors: {
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000"],
+    origin: [
+      // Development
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      // Production - Update these with your actual domains
+      "https://*.vercel.app",
+      "https://*.netlify.app",
+      /^https:\/\/rhythm-flow.*\.vercel\.app$/,
+      /^https:\/\/.*--rhythm-flow.*\.netlify\.app$/
+    ],
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -421,6 +432,30 @@ io.on('connection', (socket) => {
 
     console.log(`User disconnected: ${socket.id}`)
     console.log(`🔍 [Server] Connection duration: ${Date.now() - socket.connectedAt}ms`)
+  })
+})
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    sessions: sessions.size,
+    uptime: process.uptime()
+  })
+})
+
+// Basic info endpoint
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Rhythm Flow Socket.IO Server',
+    version: '1.0.0',
+    status: 'running',
+    sessions: sessions.size,
+    endpoints: {
+      health: '/health',
+      websocket: 'ws://this-domain'
+    }
   })
 })
 

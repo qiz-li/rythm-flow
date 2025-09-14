@@ -588,12 +588,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     })
 
     // Save to localStorage for persistence
-    if (updates.name || updates.color) {
+    if (updates.name || updates.color || updates.typingBaseline) {
       const { currentUser } = get()
       if (currentUser && currentUser.id === userId) {
         userPreferencesService.saveUserPreferences(userId, {
           name: updates.name || currentUser.name,
-          color: updates.color || currentUser.color
+          color: updates.color || currentUser.color,
+          typingBaseline: updates.typingBaseline || currentUser.typingBaseline
         })
       }
     }

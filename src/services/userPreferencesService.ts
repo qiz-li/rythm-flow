@@ -1,6 +1,9 @@
+import { TypingBaseline } from '../types'
+
 interface UserPreferences {
   name: string
   color: string
+  typingBaseline?: TypingBaseline
 }
 
 class UserPreferencesService {
@@ -28,7 +31,8 @@ class UserPreferencesService {
       if (userPrefs) {
         return {
           name: userPrefs.name,
-          color: userPrefs.color
+          color: userPrefs.color,
+          typingBaseline: userPrefs.typingBaseline
         }
       }
       return null

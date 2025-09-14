@@ -1,7 +1,15 @@
+export interface TypingBaseline {
+  wpm: number
+  accuracy: number
+  duration: number
+  timestamp: number
+}
+
 export interface User {
   id: string
   name: string
   color: string
+  typingBaseline?: TypingBaseline
 }
 
 export interface VoiceContribution {

@@ -29,6 +29,24 @@ export interface ContributionMetrics {
   dominanceWindows: Array<{ start: number; end: number }>
 }
 
+export interface UserBalance {
+  userId: string
+  voiceContribution: number // 0-1 percentage of total voice time
+  typingContribution: number // 0-1 percentage of total typing
+  overallBalance: number // 0-1 combined balance score
+  participationLevel: 'silent' | 'low' | 'balanced' | 'dominant'
+  lastActivity: number // timestamp
+}
+
+export interface BalanceToast {
+  id: string
+  userId: string
+  message: string
+  type: 'encourage' | 'moderate' | 'praise' | 'engage'
+  timestamp: number
+  duration: number
+}
+
 export interface SessionSettings {
   windowSize: number
   burstThreshold: number
@@ -43,6 +61,7 @@ export interface RhythmSession {
   participants: User[]
   voiceContributions: VoiceContribution[]
   typingActivities: TypingActivity[]
+  content: string
   settings: SessionSettings
   createdAt: number
   isActive: boolean

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSessionStore } from '../stores/sessionStore'
+import TypingWaveform from './TypingWaveform'
 
 interface BurstEvent {
   id: string
@@ -22,33 +23,72 @@ export default function BurstTimeline() {
       const timeWindow = 300000
       const newBursts: BurstEvent[] = []
 
+      console.log('🔄 [BurstTimeline] Processing typing activities:', {
+        total: currentSession.typingActivities.length,
+        activities: currentSession.typingActivities.map(a => ({
+          userId: a.userId,
+          timestamp: a.timestamp,
+          burstDuration: a.burstDuration,
+          charsAdded: a.charsAdded,
+          charsDeleted: a.charsDeleted
+        }))
+      })
+
+      // Process typing activities with validation
       currentSession.typingActivities
-        .filter(activity => (now - activity.timestamp) < timeWindow && activity.burstDuration > 0)
+        .filter(activity => {
+          const isInWindow = (now - activity.timestamp) < timeWindow
+          const hasValidDuration = activity.burstDuration >= 0 // Allow 0 duration for single keystrokes
+          const hasValidTimestamp = activity.timestamp > 0 && activity.timestamp <= now + 5000 // Allow small clock skew
+          return isInWindow && hasValidDuration && hasValidTimestamp
+        })
         .forEach(activity => {
-          newBursts.push({
-            id: `typing_${activity.timestamp}`,
-            userId: activity.userId,
-            type: 'typing',
-            start: activity.timestamp,
-            duration: activity.burstDuration,
-            intensity: (activity.charsAdded + activity.charsDeleted) / Math.max(activity.burstDuration, 1000)
-          })
+          const burstId = `typing_${activity.userId}_${activity.timestamp}`
+          // Check for duplicates
+          if (!newBursts.find(b => b.id === burstId)) {
+            const burst = {
+              id: burstId,
+              userId: activity.userId,
+              type: 'typing' as const,
+              start: activity.timestamp,
+              duration: Math.max(activity.burstDuration, 500), // Minimum 500ms for visibility
+              intensity: Math.min((activity.charsAdded + activity.charsDeleted) / Math.max(activity.burstDuration, 500), 2)
+            }
+            newBursts.push(burst)
+            console.log('✅ [BurstTimeline] Added typing burst:', burst)
+          }
         })
 
+      // Process voice contributions with validation
       currentSession.voiceContributions
-        .filter(contribution => (now - contribution.timestamp) < timeWindow)
+        .filter(contribution => {
+          const isInWindow = (now - contribution.timestamp) < timeWindow
+          const hasValidDuration = contribution.duration > 0
+          const hasValidTimestamp = contribution.timestamp > 0 && contribution.timestamp <= now + 5000
+          return isInWindow && hasValidDuration && hasValidTimestamp
+        })
         .forEach(contribution => {
-          newBursts.push({
-            id: `voice_${contribution.id}`,
-            userId: contribution.userId,
-            type: 'voice',
-            start: contribution.timestamp,
-            duration: contribution.duration,
-            intensity: contribution.duration / 10000
-          })
+          const burstId = `voice_${contribution.id}`
+          // Check for duplicates
+          if (!newBursts.find(b => b.id === burstId)) {
+            newBursts.push({
+              id: burstId,
+              userId: contribution.userId,
+              type: 'voice',
+              start: contribution.timestamp,
+              duration: contribution.duration,
+              intensity: Math.min(contribution.duration / 10000, 1)
+            })
+          }
         })
 
-      setBursts(newBursts.sort((a, b) => b.start - a.start))
+      // Sort by start time (most recent first) and ensure consistent ordering
+      setBursts(newBursts.sort((a, b) => {
+        if (b.start !== a.start) return b.start - a.start
+        // If timestamps are equal, sort by type then userId for consistency
+        if (a.type !== b.type) return a.type.localeCompare(b.type)
+        return a.userId.localeCompare(b.userId)
+      }))
     }
 
     calculateBursts()
@@ -110,33 +150,58 @@ export default function BurstTimeline() {
         })}
       </div>
 
-      <div className="space-y-2 max-h-48 overflow-y-auto">
-        {bursts.slice(0, 10).map(burst => {
+      <div className="space-y-2 max-h-96 overflow-y-auto">
+        {bursts.slice(0, 15).map(burst => {
           const user = currentSession.participants.find(p => p.id === burst.userId)
-          
+
+          // Find the original typing activity for waveform generation
+          const typingActivity = burst.type === 'typing'
+            ? currentSession.typingActivities.find(activity =>
+                activity.userId === burst.userId &&
+                activity.timestamp === burst.start
+              )
+            : null
+
           return (
             <div
               key={burst.id}
-              className="flex items-center gap-3 p-2 bg-white rounded-md border border-gray-200 text-sm"
+              className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
             >
-              <div className="flex items-center gap-2 flex-1">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
                 <div
-                  className="w-2 h-2 rounded-full"
+                  className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ backgroundColor: user?.color }}
                 />
-                <span className="font-medium text-gray-700">{user?.name}</span>
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                  burst.type === 'voice' 
-                    ? 'bg-blue-100 text-blue-700' 
+                <span className="font-medium text-gray-700 truncate">{user?.name}</span>
+                <span className={`px-2 py-1 rounded-full text-xs flex-shrink-0 ${
+                  burst.type === 'voice'
+                    ? 'bg-blue-100 text-blue-700'
                     : 'bg-green-100 text-green-700'
                 }`}>
                   {burst.type}
                 </span>
               </div>
-              
-              <div className="text-right text-gray-500">
+
+              {/* Waveform visualization for typing activities */}
+              {typingActivity && (
+                <div className="flex-shrink-0">
+                  <TypingWaveform
+                    activity={typingActivity}
+                    color={user?.color || '#6366f1'}
+                    className="w-24 h-8"
+                  />
+                </div>
+              )}
+
+              <div className="text-right text-gray-500 flex-shrink-0 min-w-16">
                 <div className="text-xs">{formatTime(burst.start)}</div>
                 <div className="text-xs">{formatDuration(burst.duration)}</div>
+                {burst.type === 'typing' && typingActivity && (
+                  <div className="text-xs text-green-600 font-medium">
+                    {typingActivity.charsAdded > 0 && `+${typingActivity.charsAdded}`}
+                    {typingActivity.charsDeleted > 0 && ` -${typingActivity.charsDeleted}`}
+                  </div>
+                )}
               </div>
             </div>
           )

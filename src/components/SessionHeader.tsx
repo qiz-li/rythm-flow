@@ -8,6 +8,7 @@ interface SessionHeaderProps {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error'
   onLeaveSession: () => void
   onShowSummary: () => void
+  onShowSettings: () => void
 }
 
 export default function SessionHeader({
@@ -16,7 +17,8 @@ export default function SessionHeader({
   onlineUsers,
   connectionStatus,
   onLeaveSession,
-  onShowSummary
+  onShowSummary,
+  onShowSettings
 }: SessionHeaderProps) {
   const sessionName = sessionId === 'demo-session' ? 'Demo Session' : 'Rhythm Flow Session'
 
@@ -104,6 +106,7 @@ export default function SessionHeader({
           </button>
 
           <button
+            onClick={onShowSettings}
             className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
             title="Session settings"
           >

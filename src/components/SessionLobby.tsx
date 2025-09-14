@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { User } from '../types'
 import { useSessionStore } from '../stores/sessionStore'
+import { userPreferencesService } from '../services/userPreferencesService'
 import { Users, Plus, Settings, Wifi, WifiOff, Loader } from 'lucide-react'
 
 interface SessionLobbyProps {
@@ -10,12 +11,25 @@ interface SessionLobbyProps {
 const generateUserId = () => Math.random().toString(36).substr(2, 9)
 
 const userColors = [
-  '#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', 
+  '#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b',
   '#ef4444', '#ec4899', '#14b8a6', '#f97316', '#84cc16'
 ]
 
+const getAvailableColor = (existingParticipants: User[]): string => {
+  const usedColors = new Set(existingParticipants.map(p => p.color))
+  const availableColors = userColors.filter(color => !usedColors.has(color))
+
+  if (availableColors.length > 0) {
+    return availableColors[Math.floor(Math.random() * availableColors.length)]
+  }
+
+  // If all colors are used, return a random color (fallback for sessions with >10 users)
+  return userColors[Math.floor(Math.random() * userColors.length)]
+}
+
 export default function SessionLobby({ onJoinSession }: SessionLobbyProps) {
   const [userName, setUserName] = useState('')
+  const [userColor, setUserColor] = useState(userColors[Math.floor(Math.random() * userColors.length)])
   const [sessionName, setSessionName] = useState('')
   const [sessionId, setSessionId] = useState('')
   const [isCreating, setIsCreating] = useState(false)
@@ -42,6 +56,16 @@ export default function SessionLobby({ onJoinSession }: SessionLobbyProps) {
     connectionStatus,
     currentSession
   } = useSessionStore()
+
+  // Load saved user preferences on mount
+  useEffect(() => {
+    const savedPrefs = userPreferencesService.getLastUsedPreferences()
+    if (savedPrefs) {
+      setUserName(savedPrefs.name)
+      setUserColor(savedPrefs.color)
+      addDebugLog('Loaded saved user preferences', savedPrefs)
+    }
+  }, [])
 
   useEffect(() => {
     addDebugLog('Socket initialization check', { connectionStatus })
@@ -75,7 +99,7 @@ export default function SessionLobby({ onJoinSession }: SessionLobbyProps) {
     const user: User = {
       id: generateUserId(),
       name: userName.trim(),
-      color: userColors[Math.floor(Math.random() * userColors.length)]
+      color: getAvailableColor([]) // No existing participants for session creation
     }
 
     addDebugLog('Generated user for session creation', user)
@@ -125,7 +149,7 @@ export default function SessionLobby({ onJoinSession }: SessionLobbyProps) {
     const user: User = {
       id: generateUserId(),
       name: userName.trim(),
-      color: userColors[Math.floor(Math.random() * userColors.length)]
+      color: userColor // Server will handle color conflicts automatically
     }
 
     addDebugLog('Generated user for session joining', user)
@@ -186,7 +210,7 @@ export default function SessionLobby({ onJoinSession }: SessionLobbyProps) {
     const user: User = {
       id: generateUserId(),
       name: userName.trim(),
-      color: userColors[Math.floor(Math.random() * userColors.length)]
+      color: userColor
     }
 
     addDebugLog('Generated user for demo session', user)

@@ -5,20 +5,43 @@ import CollaborationSurface from './CollaborationSurface'
 import RhythmFeedback from './RhythmFeedback'
 import SessionHeader from './SessionHeader'
 import SessionSummary from './SessionSummary'
+import SessionBalanceDashboard from './SessionBalanceDashboard'
+import SettingsModal from './SettingsModal'
 
 interface WorkspaceViewProps {
   currentUser: User
   sessionId: string
   onLeaveSession: () => void
+  onUserUpdate?: (user: User) => void
 }
 
-export default function WorkspaceView({ currentUser, sessionId, onLeaveSession }: WorkspaceViewProps) {
-  const { currentSession, leaveSession, onlineUsers, connectionStatus } = useSessionStore()
+export default function WorkspaceView({ currentUser: propCurrentUser, sessionId, onLeaveSession, onUserUpdate }: WorkspaceViewProps) {
+  const { currentSession, leaveSession, onlineUsers, connectionStatus, currentUser: storeCurrentUser, updateUser, updateSessionName } = useSessionStore()
   const [showSummary, setShowSummary] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+
+  // Use store currentUser if available (for demo user switching), otherwise use prop
+  const currentUser = storeCurrentUser || propCurrentUser
 
   const handleLeaveSession = () => {
     leaveSession(currentUser.id)
     onLeaveSession()
+  }
+
+  const handleUserUpdate = (updates: { name?: string; color?: string }) => {
+    updateUser(currentUser.id, updates)
+
+    // Also update the App component's user state
+    if (onUserUpdate) {
+      const updatedUser = { ...currentUser, ...updates }
+      onUserUpdate(updatedUser)
+    }
+  }
+
+  const handleSessionUpdate = (updates: { name?: string }) => {
+    if (updates.name) {
+      updateSessionName(updates.name)
+    }
   }
 
   if (!currentSession) {
@@ -46,6 +69,7 @@ export default function WorkspaceView({ currentUser, sessionId, onLeaveSession }
         connectionStatus={connectionStatus}
         onLeaveSession={handleLeaveSession}
         onShowSummary={() => setShowSummary(true)}
+        onShowSettings={() => setShowSettings(true)}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -53,8 +77,13 @@ export default function WorkspaceView({ currentUser, sessionId, onLeaveSession }
           <CollaborationSurface currentUser={currentUser} />
         </div>
 
-        <div className="w-80 border-l border-gray-200 bg-white">
-          <RhythmFeedback currentUser={currentUser} onlineUsers={onlineUsers} />
+        <div className="w-80 border-l border-gray-200 bg-white flex flex-col">
+          <div className="p-4 border-b border-gray-200">
+            <SessionBalanceDashboard />
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <RhythmFeedback currentUser={currentUser} onlineUsers={onlineUsers} />
+          </div>
         </div>
       </div>
 
@@ -64,6 +93,14 @@ export default function WorkspaceView({ currentUser, sessionId, onLeaveSession }
           onClose={() => setShowSummary(false)}
         />
       )}
+
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        currentUser={currentUser}
+        onUserUpdate={handleUserUpdate}
+        onSessionUpdate={handleSessionUpdate}
+      />
     </div>
   )
 }

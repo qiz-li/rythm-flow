@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import SessionLobby from './components/SessionLobby'
 import WorkspaceView from './components/WorkspaceView'
 import ConnectionStatus from './components/ConnectionStatus'
+import BalanceToastContainer from './components/BalanceToastContainer'
 import { User } from './types'
 import { useSessionStore } from './stores/sessionStore'
 import { useSessionRecovery } from './hooks/useSessionRecovery'
@@ -9,8 +10,16 @@ import { useSessionRecovery } from './hooks/useSessionRecovery'
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const { currentSession } = useSessionStore()
+  const { currentSession, currentUser: storeCurrentUser } = useSessionStore()
   const { clearRecoveryData } = useSessionRecovery()
+
+  // Sync with session store currentUser to keep App state up to date
+  useEffect(() => {
+    if (storeCurrentUser && currentUser?.id === storeCurrentUser.id) {
+      // Update App's currentUser state when store currentUser changes
+      setCurrentUser(storeCurrentUser)
+    }
+  }, [storeCurrentUser, currentUser?.id])
 
   // Only sync session clearing, not user setting (let handleJoinSession handle user setting)
   useEffect(() => {
@@ -23,6 +32,10 @@ function App() {
   const handleJoinSession = (user: User, sessionId: string) => {
     setCurrentUser(user)
     setSessionId(sessionId)
+  }
+
+  const handleUserUpdate = (updatedUser: User) => {
+    setCurrentUser(updatedUser)
   }
 
   const handleLeaveSession = () => {
@@ -40,9 +53,11 @@ function App() {
           currentUser={currentUser}
           sessionId={sessionId}
           onLeaveSession={handleLeaveSession}
+          onUserUpdate={handleUserUpdate}
         />
       )}
       <ConnectionStatus />
+      <BalanceToastContainer />
     </>
   )
 }

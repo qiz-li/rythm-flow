@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { Mic, MicOff, Square, Loader2 } from 'lucide-react'
 import { User, VoiceContribution } from '../types'
 import { useSessionStore } from '../stores/sessionStore'
-import { openaiWhisperService } from '../services/openaiWhisperService'
-import OpenAIWhisperStatus from './OpenAIWhisperStatus'
+import { transcriptionService } from '../services/transcriptionService'
+import TranscriptionModelSelector from './TranscriptionModelSelector'
 
 interface VoiceControlsProps {
   currentUser: User
@@ -60,7 +60,7 @@ export default function VoiceControls({ currentUser }: VoiceControlsProps) {
         setTranscriptionError(null)
         
         try {
-          const result = await openaiWhisperService.transcribeAudio(audioBlob)
+          const result = await transcriptionService.transcribeAudio(audioBlob)
           
           let transcriptionText: string
           let confidence: number | undefined
@@ -244,7 +244,7 @@ export default function VoiceControls({ currentUser }: VoiceControlsProps) {
         <div className="text-xs text-gray-500">
           User: <span style={{ color: currentUser.color }}>{currentUser.name}</span>
         </div>
-        <OpenAIWhisperStatus />
+        <TranscriptionModelSelector />
       </div>
     </div>
   )

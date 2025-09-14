@@ -1,9 +1,7 @@
 import { User } from '../types'
 import { useSessionStore } from '../stores/sessionStore'
-import ActivityBars from './ActivityBars'
 import BurstTimeline from './BurstTimeline'
-import BalanceIndicator from './BalanceIndicator'
-import { BarChart3, Clock, Users, User as UserIcon } from 'lucide-react'
+import { BarChart3, Clock, Activity } from 'lucide-react'
 
 interface RhythmFeedbackProps {
   currentUser: User
@@ -13,6 +11,7 @@ interface RhythmFeedbackProps {
 export default function RhythmFeedback({ currentUser, onlineUsers = [] }: RhythmFeedbackProps) {
   const { currentSession } = useSessionStore()
 
+  // Session stats
   const sessionDuration = currentSession
     ? Math.floor((Date.now() - currentSession.createdAt) / 1000)
     : 0
@@ -26,79 +25,60 @@ export default function RhythmFeedback({ currentUser, onlineUsers = [] }: Rhythm
   const totalContributions = currentSession
     ? currentSession.voiceContributions.length + currentSession.typingActivities.length
     : 0
+
+  const totalVoiceTime = currentSession
+    ? currentSession.voiceContributions.reduce((sum, vc) => sum + vc.duration, 0)
+    : 0
+
+  const totalTypingChars = currentSession
+    ? currentSession.typingActivities.reduce((sum, ta) => sum + ta.charsAdded + ta.charsDeleted, 0)
+    : 0
+
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-rhythm-primary" />
-          Rhythm Analytics
-        </h2>
-        <p className="text-sm text-gray-600 mt-1">Live contribution patterns</p>
-      </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {/* Online Users */}
-        <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-            <UserIcon className="w-4 h-4" />
-            Online Participants ({onlineUsers.length})
-          </h3>
-          <div className="space-y-2">
-            {onlineUsers.map((user) => (
-              <div key={user.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50">
-                <div
-                  className="w-4 h-4 rounded-full"
-                  style={{ backgroundColor: user.color }}
-                />
-                <span className="text-sm text-gray-700 flex-1">{user.name}</span>
-                {user.id === currentUser.id && (
-                  <span className="text-xs text-rhythm-primary font-medium">You</span>
-                )}
-              </div>
-            ))}
-            {onlineUsers.length === 0 && (
-              <div className="text-sm text-gray-500 italic">No other participants online</div>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Activity Levels
-          </h3>
-          <ActivityBars currentUser={currentUser} />
-        </div>
-
+        {/* Activity Timeline - This is unique, no duplication */}
         <div>
           <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
             <Clock className="w-4 h-4" />
-            Contribution Timeline
+            Recent Contributions
           </h3>
           <BurstTimeline />
         </div>
 
+        {/* Session Overview - Unique high-level stats */}
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">
-            Session Balance
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <Activity className="w-4 h-4" />
+            Session Overview
           </h3>
-          <BalanceIndicator />
-        </div>
-      </div>
+          <div className="space-y-3">
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-gray-900">{totalContributions}</div>
+                  <div className="text-xs text-gray-600">Total Actions</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-gray-900">{formatDuration(sessionDuration)}</div>
+                  <div className="text-xs text-gray-600">Session Time</div>
+                </div>
+              </div>
+            </div>
 
-      <div className="p-4 border-t border-gray-200 bg-gray-50">
-        <div className="text-xs text-gray-500 space-y-1">
-          <div className="flex justify-between">
-            <span>Session Duration:</span>
-            <span className="font-mono">{formatDuration(sessionDuration)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Total Contributions:</span>
-            <span className="font-mono">{totalContributions}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Active Participants:</span>
-            <span className="font-mono">{onlineUsers.length}</span>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-center">
+                <div className="font-semibold text-blue-700">
+                  {Math.round(totalVoiceTime / 1000)}s
+                </div>
+                <div className="text-blue-600">Voice Time</div>
+              </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-center">
+                <div className="font-semibold text-green-700">{totalTypingChars}</div>
+                <div className="text-green-600">Characters</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -12,13 +12,9 @@ function App() {
   const { currentSession } = useSessionStore()
   const { clearRecoveryData } = useSessionRecovery()
 
-  // Sync with session store
+  // Only sync session clearing, not user setting (let handleJoinSession handle user setting)
   useEffect(() => {
-    if (currentSession && currentSession.participants.length > 0) {
-      const user = currentSession.participants[0]
-      setCurrentUser(user)
-      setSessionId(currentSession.id)
-    } else if (!currentSession) {
+    if (!currentSession) {
       setCurrentUser(null)
       setSessionId(null)
     }

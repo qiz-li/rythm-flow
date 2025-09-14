@@ -10,8 +10,13 @@ const httpServer = createServer(app)
 const io = new Server(httpServer, {
   cors: {
     origin: ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000"], // Support both Vite ports
-    methods: ["GET", "POST"]
-  }
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  allowEIO3: true, // Allow Engine.IO v3 clients
+  transports: ['websocket', 'polling'],
+  pingTimeout: 60000,
+  pingInterval: 25000
 })
 
 // In-memory storage for demo purposes
@@ -121,7 +126,13 @@ sessions.delete(userSessions.get('demo-user'))
 userSessions.delete('demo-user')
 
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`)
+  console.log(`✅ User connected: ${socket.id} from ${socket.handshake.address}`)
+  console.log(`🔍 Connection details:`, {
+    transport: socket.conn.transport.name,
+    upgraded: socket.conn.upgraded,
+    remoteAddress: socket.handshake.address,
+    headers: socket.handshake.headers.origin
+  })
 
   socket.on('create-session', ({ sessionName, user }) => {
     try {
@@ -144,6 +155,10 @@ io.on('connection', (socket) => {
       socket.join(sessionId)
       socket.userId = user.id
       socket.sessionId = sessionId
+
+      // Debug room membership
+      console.log(`👥 Socket ${socket.id} joined room ${sessionId}`)
+      console.log(`🏠 Room ${sessionId} now has ${io.sockets.adapter.rooms.get(sessionId)?.size || 0} members`)
 
       socket.emit('join-session-response', { success: true, session })
       socket.to(sessionId).emit('user-joined', user)
@@ -169,8 +184,10 @@ io.on('connection', (socket) => {
   })
 
   socket.on('voice-contribution', ({ sessionId, contribution }) => {
+    console.log(`🎤 Voice contribution from ${contribution.userId} in session ${sessionId}`)
     if (sessionManager.addVoiceContribution(sessionId, contribution)) {
       socket.to(sessionId).emit('voice-contribution', contribution)
+      console.log(`📤 Broadcasted voice contribution to session ${sessionId}`)
 
       const updatedSession = sessionManager.getSession(sessionId)
       if (updatedSession) {
@@ -180,13 +197,23 @@ io.on('connection', (socket) => {
   })
 
   socket.on('typing-activity', ({ sessionId, activity }) => {
+    console.log(`⌨️ Typing activity from ${activity.userId} in session ${sessionId}`)
+    console.log(`🔍 Activity details:`, activity)
+    console.log(`🏠 Room ${sessionId} has ${io.sockets.adapter.rooms.get(sessionId)?.size || 0} members`)
+    console.log(`👤 Socket ${socket.id} is in session ${socket.sessionId}`)
+
     if (sessionManager.addTypingActivity(sessionId, activity)) {
+      console.log(`📤 Broadcasting typing activity to ${(io.sockets.adapter.rooms.get(sessionId)?.size || 0) - 1} other users`)
       socket.to(sessionId).emit('typing-activity', activity)
+      console.log(`✅ Broadcasted typing activity to session ${sessionId}`)
 
       const updatedSession = sessionManager.getSession(sessionId)
       if (updatedSession) {
         io.to(sessionId).emit('session-updated', updatedSession)
+        console.log(`📤 Sent session-updated to all users in ${sessionId}`)
       }
+    } else {
+      console.log(`❌ Failed to add typing activity to session ${sessionId}`)
     }
   })
 

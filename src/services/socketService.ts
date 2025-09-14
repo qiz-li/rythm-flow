@@ -29,36 +29,66 @@ class SocketService {
 
   connect(serverUrl?: string): Promise<Socket> {
     return new Promise((resolve, reject) => {
+      console.log('🔌 [SocketService] Connect method called', { serverUrl, currentlyConnected: this.socket?.connected })
+
       if (this.socket?.connected) {
+        console.log('✅ [SocketService] Already connected, resolving immediately')
         resolve(this.socket)
         return
       }
 
       const url = serverUrl || import.meta.env.VITE_SOCKET_URL || 'ws://localhost:3001'
+      console.log('🔌 [SocketService] Attempting connection to:', url)
+      console.log('🔍 [SocketService] Environment VITE_SOCKET_URL:', import.meta.env.VITE_SOCKET_URL)
 
       this.socket = io(url, {
         transports: ['websocket', 'polling'],
-        timeout: 5000,
-        retries: 3
+        timeout: 10000, // Increased timeout
+        retries: 5,     // Increased retries
+        forceNew: true  // Force new connection
+      })
+
+      console.log('🔌 [SocketService] Socket instance created with config:', {
+        transports: ['websocket', 'polling'],
+        timeout: 10000,
+        retries: 5,
+        forceNew: true
       })
 
       this.socket.on('connect', () => {
-        console.log('✅ Socket connected to server')
+        console.log('✅ [SocketService] Socket connected to server successfully')
+        console.log('🔌 [SocketService] Connection details:', {
+          id: this.socket?.id,
+          connected: this.socket?.connected,
+          disconnected: this.socket?.disconnected
+        })
         this.reconnectAttempts = 0
         resolve(this.socket!)
       })
 
       this.socket.on('connect_error', (error) => {
-        console.error('❌ Socket connection error:', error)
+        console.error('❌ [SocketService] Socket connection error:', error)
+        console.error('🔍 [SocketService] Error details:', {
+          message: error.message,
+          type: error.type,
+          description: error.description,
+          context: error.context,
+          url
+        })
         this.handleReconnection()
         reject(error)
       })
 
       this.socket.on('disconnect', (reason) => {
-        console.log('🔌 Socket disconnected:', reason)
+        console.log('🔌 [SocketService] Socket disconnected:', reason)
+        console.log('🔍 [SocketService] Disconnect details:', {
+          reason,
+          id: this.socket?.id,
+          reconnectAttempts: this.reconnectAttempts
+        })
         // Don't auto-reconnect on intentional disconnects
         if (reason === 'io server disconnect' || reason === 'io client disconnect') {
-          console.log('Intentional disconnect, not reconnecting')
+          console.log('🔌 [SocketService] Intentional disconnect, not reconnecting')
         }
       })
     })
@@ -88,6 +118,12 @@ class SocketService {
     this.socket = null
   }
 
+  reset() {
+    console.log('🔄 [SocketService] Resetting socket connection')
+    this.disconnect()
+    this.reconnectAttempts = 0
+  }
+
   isConnected(): boolean {
     return this.socket?.connected || false
   }
@@ -95,47 +131,103 @@ class SocketService {
   // Session operations
   createSession(sessionName: string, user: User): Promise<RhythmSession> {
     return new Promise((resolve, reject) => {
+      console.log('🆕 [SocketService] CreateSession called', { sessionName, user })
+
       if (!this.socket?.connected) {
-        console.error('❌ Cannot create session: socket not connected')
+        console.error('❌ [SocketService] Cannot create session: socket not connected')
+        console.error('🔍 [SocketService] Socket state:', {
+          exists: !!this.socket,
+          connected: this.socket?.connected,
+          disconnected: this.socket?.disconnected,
+          id: this.socket?.id
+        })
         reject(new Error('Not connected to server'))
         return
       }
 
-      console.log('📤 Emitting create-session event:', { sessionName, user })
+      console.log('📤 [SocketService] Emitting create-session event:', { sessionName, user })
+      console.log('🔍 [SocketService] Current socket state before emit:', {
+        connected: this.socket.connected,
+        id: this.socket.id
+      })
+
+      // Set up timeout for response
+      const timeout = setTimeout(() => {
+        console.error('⏰ [SocketService] Create session timeout - no response received')
+        reject(new Error('Create session timeout - server not responding'))
+      }, 10000)
 
       this.socket.once('session-created', (response) => {
-        console.log('📥 Received session-created response:', response)
+        clearTimeout(timeout)
+        console.log('📥 [SocketService] Received session-created response:', response)
         if (response.success && response.session) {
+          console.log('✅ [SocketService] Session created successfully:', response.session.id)
           resolve(response.session)
         } else {
+          console.error('❌ [SocketService] Session creation failed:', response.error)
           reject(new Error(response.error || 'Failed to create session'))
         }
       })
 
-      this.socket.emit('create-session', { sessionName, user })
+      try {
+        this.socket.emit('create-session', { sessionName, user })
+        console.log('📤 [SocketService] Create-session event emitted successfully')
+      } catch (emitError) {
+        clearTimeout(timeout)
+        console.error('❌ [SocketService] Error emitting create-session:', emitError)
+        reject(emitError)
+      }
     })
   }
 
   joinSession(sessionId: string, user: User): Promise<RhythmSession> {
     return new Promise((resolve, reject) => {
+      console.log('🚪 [SocketService] JoinSession called', { sessionId, user })
+
       if (!this.socket?.connected) {
-        console.error('❌ Cannot join session: socket not connected')
+        console.error('❌ [SocketService] Cannot join session: socket not connected')
+        console.error('🔍 [SocketService] Socket state:', {
+          exists: !!this.socket,
+          connected: this.socket?.connected,
+          disconnected: this.socket?.disconnected,
+          id: this.socket?.id
+        })
         reject(new Error('Not connected to server'))
         return
       }
 
-      console.log('📤 Emitting join-session event:', { sessionId, user })
+      console.log('📤 [SocketService] Emitting join-session event:', { sessionId, user })
+      console.log('🔍 [SocketService] Current socket state before emit:', {
+        connected: this.socket.connected,
+        id: this.socket.id
+      })
+
+      // Set up timeout for response
+      const timeout = setTimeout(() => {
+        console.error('⏰ [SocketService] Join session timeout - no response received')
+        reject(new Error('Join session timeout - server not responding'))
+      }, 10000)
 
       this.socket.once('join-session-response', (response) => {
-        console.log('📥 Received join-session-response:', response)
+        clearTimeout(timeout)
+        console.log('📥 [SocketService] Received join-session-response:', response)
         if (response.success && response.session) {
+          console.log('✅ [SocketService] Session joined successfully:', response.session.id)
           resolve(response.session)
         } else {
+          console.error('❌ [SocketService] Session join failed:', response.error)
           reject(new Error(response.error || 'Failed to join session'))
         }
       })
 
-      this.socket.emit('join-session', { sessionId, user })
+      try {
+        this.socket.emit('join-session', { sessionId, user })
+        console.log('📤 [SocketService] Join-session event emitted successfully')
+      } catch (emitError) {
+        clearTimeout(timeout)
+        console.error('❌ [SocketService] Error emitting join-session:', emitError)
+        reject(emitError)
+      }
     })
   }
 
@@ -153,8 +245,12 @@ class SocketService {
   }
 
   broadcastTypingActivity(sessionId: string, activity: TypingActivity) {
+    console.log('⌨️ [SocketService] BroadcastTypingActivity called', { sessionId, activity, connected: this.socket?.connected })
     if (this.socket?.connected) {
+      console.log('📤 [SocketService] Emitting typing-activity to server')
       this.socket.emit('typing-activity', { sessionId, activity })
+    } else {
+      console.error('❌ [SocketService] Cannot broadcast typing activity: socket not connected')
     }
   }
 

@@ -69,3 +69,4 @@ Thumbs.db
 
 # Claude Code
 .claude/
+.env.local

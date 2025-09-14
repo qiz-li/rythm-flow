@@ -18,19 +18,29 @@ export default function CollaborationSurface({ currentUser }: CollaborationSurfa
   const handleContentChange = (newContent: string) => {
     const now = Date.now()
     const charsDiff = newContent.length - content.length
-    
+
+    console.log('✏️ [CollaborationSurface] Content changed', {
+      oldLength: content.length,
+      newLength: newContent.length,
+      charsDiff,
+      userId: currentUser.id
+    })
+
     if (charsDiff !== 0) {
-      addTypingActivity({
+      const activity = {
         userId: currentUser.id,
         timestamp: now,
         charsAdded: Math.max(0, charsDiff),
         charsDeleted: Math.max(0, -charsDiff),
         burstDuration: now - lastKeystroke < 2000 ? now - lastKeystroke : 0
-      })
-      
+      }
+
+      console.log('⌨️ [CollaborationSurface] Calling addTypingActivity', activity)
+      addTypingActivity(activity)
+
       setLastKeystroke(now)
     }
-    
+
     setContent(newContent)
   }
 
